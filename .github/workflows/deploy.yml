@@ -1,0 +1,126 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Main"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deploy target"
+        required: true
+        type: choice
+        options:
+          - stage
+          - live
+
+jobs:
+  stage:
+    if: >
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && inputs.target == 'stage')
+    runs-on: ubuntu-latest
+    environment: Stage
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Init
+        run: terraform init
+
+      - name: Select workspace
+        run: terraform workspace select stage
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      - name: Apply
+        run: terraform apply tfplan
+
+  live-plan:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'live'
+    runs-on: ubuntu-latest
+    environment: Live Plan
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Init
+        run: terraform init
+
+      - name: Select workspace
+        run: terraform workspace select live
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      # The live web server carries the Postgres and Redis volumes, so a replace
+      # is data loss, not a rolling update. Block it and force a manual apply.
+      - name: Check for destructive changes
+        run: |
+          terraform show -json tfplan > plan.json
+          DESTROYS=$(jq '[.resource_changes[]? | select(.change.actions | contains(["delete"]))] | length' plan.json)
+          REPLACES=$(jq '[.resource_changes[]? | select(.change.actions | contains(["delete", "create"]))] | length' plan.json)
+          echo "Resources to destroy: $DESTROYS"
+          echo "Resources to replace: $REPLACES"
+          if [ "$DESTROYS" -gt 0 ] || [ "$REPLACES" -gt 0 ]; then
+            echo "::error::Plan contains destructive changes ($DESTROYS destroys, $REPLACES replacements). Live deploy blocked."
+            exit 1
+          fi
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-tfplan
+          path: tfplan
+
+  live-apply:
+    needs: live-plan
+    runs-on: ubuntu-latest
+    environment: Live
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Init
+        run: terraform init
+
+      - name: Select workspace
+        run: terraform workspace select live
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: live-tfplan
+
+      - name: Apply
+        run: terraform apply tfplan
