@@ -53,9 +53,8 @@ Levers, cheapest first:
    custom domain at a time, so stage and live cannot both show a placeholder.
    Point it at whichever is down:
 
-   ```bash
-   gh api -X PUT repos/reckoning/infrastructure/pages -f cname=reckoning.me
-   ```
+   Set `placeholder/CNAME` to whichever domain is down — it configures the Pages
+   custom domain on deploy, and only one can be active at a time.
 2. **One server, not two.** `accessories_count = 0` (the default for live) colocates the datastores. The trade-off is that replacing the web server destroys the Postgres volume — see [MAINTENANCE.md](MAINTENANCE.md).
 3. **ARM instead of Intel.** A `cax11` is cheaper than a `cx23` for the same 2 vCPU / 4 GB. This requires changing `builder.arch` to `arm64` in the app repo's `config/deploy.yml`; not done by default because the Docker image is currently built `amd64`.
 
