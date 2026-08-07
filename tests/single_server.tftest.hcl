@@ -174,3 +174,54 @@ run "running_environment_has_no_placeholder" {
     error_message = "Web A record missing for a running environment"
   }
 }
+
+# Downscaling live must keep the domain usable: apex and www fall back to the
+# placeholder, and mail keeps working because MX/TXT do not depend on servers.
+run "downscaled_live_keeps_mail_and_serves_placeholder" {
+  command = plan
+
+  variables {
+    manage_dns = true
+    env_config = {
+      default = {
+        server_type       = "cx23"
+        web_servers_count = 0
+        accessories_count = 0
+        dns_zone          = "reckoning.me"
+        hostnames         = ["@", "www", "*"]
+        cors_origins      = []
+        object_storage    = false
+      }
+    }
+    email_config = {
+      default = {
+        mx_records  = [{ value = "1 smtp.google.com." }]
+        cnames      = {}
+        dkim        = {}
+        txt_records = ["\"google-site-verification=test\""]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.web) == 0
+    error_message = "Web A records survived a downscale"
+  }
+
+  # The wildcard is dropped on purpose: GitHub Pages routes by Host header and
+  # cannot serve arbitrary subdomains, so a record pointing there would lie.
+  assert {
+    condition     = toset(keys(hcloud_zone_rrset.placeholder)) == toset(["@", "www"])
+    error_message = "Placeholder should cover apex and www, and exclude the wildcard"
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.mx) == 1
+    error_message = "MX record was dropped when the servers went away — mail would break"
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.txt) == 1
+    error_message = "Domain-verification TXT was dropped on downscale"
+  }
+}

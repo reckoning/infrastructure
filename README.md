@@ -45,6 +45,17 @@ Splitting stage and live into two Hetzner **projects costs nothing**. Billing is
 Levers, cheapest first:
 
 1. **Stage holds nothing when idle.** `web_servers_count = 0` and `object_storage = false`.
+
+   Live can be downscaled the same way. Apex and `www` then resolve to the
+   GitHub Pages placeholder, and MX/TXT are untouched so mail and domain
+   verification keep working. Two caveats: the wildcard record disappears, so
+   arbitrary subdomains stop resolving entirely; and Pages accepts only one
+   custom domain at a time, so stage and live cannot both show a placeholder.
+   Point it at whichever is down:
+
+   ```bash
+   gh api -X PUT repos/reckoning/infrastructure/pages -f cname=reckoning.me
+   ```
 2. **One server, not two.** `accessories_count = 0` (the default for live) colocates the datastores. The trade-off is that replacing the web server destroys the Postgres volume — see [MAINTENANCE.md](MAINTENANCE.md).
 3. **ARM instead of Intel.** A `cax11` is cheaper than a `cx23` for the same 2 vCPU / 4 GB. This requires changing `builder.arch` to `arm64` in the app repo's `config/deploy.yml`; not done by default because the Docker image is currently built `amd64`.
 
