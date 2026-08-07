@@ -51,6 +51,8 @@ terraform apply
 
 CI enforces `fmt -check -recursive`, `validate`, `test`, and `shellcheck scripts/*.sh`. Run them locally before pushing.
 
+`terraform test` runs against the **currently selected workspace**, and the test fixtures only define a `default` entry in `env_config`. Running it while `stage` or `live` is selected makes the map lookup fail, which Terraform then renders by panicking with a Go stack trace rather than reporting the error. Select `default` first. CI is unaffected — it inits with `-backend=false`, which has only that workspace.
+
 ## Conventions
 
 - Resource names are prefixed with `local.prefix` (`reckoning-<workspace>`) so nothing collides between workspaces.
