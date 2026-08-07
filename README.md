@@ -66,7 +66,7 @@ Levers, cheapest first:
 | `locals.tf` | Computed values (private IPs, colocation flag) |
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
-| `scripts/` | DB import and DigitalOcean storage migration |
+| `scripts/` | DB import and Active Storage blob upload |
 | `tests/` | `terraform test` suites |
 
 ## Secrets
@@ -110,4 +110,4 @@ Run `terraform fmt -recursive`, `terraform validate`, and `terraform test` befor
 
 ## Migrating off the legacy setup
 
-See [docs/migration.md](docs/migration.md) for the cutover runbook: importing the existing production database, moving Active Storage blobs off DigitalOcean Spaces, and repointing DNS.
+See [docs/migration.md](docs/migration.md) for the cutover runbook: importing the existing production database, uploading the Active Storage archive, and repointing DNS.

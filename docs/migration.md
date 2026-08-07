@@ -9,7 +9,7 @@ Cutover from the Ansible/Capistrano setup (`reckoning/infrastructure-legacy`) to
 | App | Capistrano release dirs + nginx + rbenv | Kamal on Docker |
 | Postgres | Server-installed Postgres | `db` Kamal accessory (Docker volume) |
 | Redis | Server-installed Redis | `redis` Kamal accessory |
-| Active Storage | DigitalOcean Spaces (`reckoning`, fra1) | Hetzner Object Storage (`reckoning-live-storage`) |
+| Active Storage | Local archive of the retired DigitalOcean Spaces bucket | Hetzner Object Storage (`reckoning-live-storage`) |
 | DNS | Existing `reckoning.me` nameservers | Hetzner DNS |
 | Backups | Ansible `backup` role | `postgres-backup-s3` accessory → `db/` prefix |
 
@@ -20,6 +20,12 @@ Cutover from the Ansible/Capistrano setup (`reckoning/infrastructure-legacy`) to
 - Hetzner S3 credentials exported as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
 - `rclone` installed locally (`brew install rclone`)
 - The current production dump available in your dev environment
+- The Active Storage archive (zip) downloaded from the retired Spaces bucket
+
+> **The Spaces bucket is gone.** The zip is the only remaining copy of every
+> invoice attachment and upload. Keep an untouched copy of it somewhere safe for
+> the duration of the migration — there is nothing to re-pull from if it is lost
+> or turns out to be incomplete.
 
 ## 2. Provision the server
 
@@ -69,14 +75,38 @@ Compare those counts against the old production box before continuing.
 
 > **Encrypted columns.** Reckoning uses Active Record encryption. The restored data is only readable if the new deployment has the same `RAILS_MASTER_KEY` and encryption keys as the old one — verify by reading back an encrypted attribute, not just by counting rows.
 
-## 5. Move Active Storage off DigitalOcean
+## 5. Upload Active Storage blobs
 
-`rclone sync` is incremental, so run it once now to move the bulk:
+The Spaces bucket has already been retired, so the blobs come from the archive
+rather than a live sync:
 
 ```bash
-export DO_SPACES_KEY=... DO_SPACES_SECRET=...
-./scripts/migrate-storage.sh live --dry-run   # review first
-./scripts/migrate-storage.sh live
+./scripts/import-storage.sh ~/Downloads/reckoning-storage.zip live --dry-run
+./scripts/import-storage.sh ~/Downloads/reckoning-storage.zip live
+```
+
+Active Storage resolves blobs by their exact key with no prefix. If the zip wraps
+the blobs in a folder, uploading it verbatim would put every object one level too
+deep and silently break every attachment — the script detects and strips wrapper
+directories, then prints a sample of the keys before writing anything. Check that
+sample against the database:
+
+```bash
+kamal app exec -d live "bin/rails runner 'puts ActiveStorage::Blob.limit(5).pluck(:key)'"
+```
+
+Those keys must look like the sample the script printed. If they don't match, stop
+and work out the layout before uploading.
+
+Because the source bucket is gone, verify coverage rather than assuming it — a
+blob missing here is permanently missing:
+
+```bash
+kamal app exec -d live "bin/rails runner '
+  missing = ActiveStorage::Blob.find_each.reject { |b| b.service.exist?(b.key) }
+  puts \"missing: #{missing.count}\"
+  missing.first(10).each { |b| puts b.key }
+'"
 ```
 
 Then point the app at the new bucket — add a Hetzner service to `config/storage.yml` in the app repo and switch `config.active_storage.service`:
@@ -97,7 +127,7 @@ Active Storage blob keys are preserved by the sync, so no database rewrite is ne
 
 1. Put the old site into maintenance mode.
 2. Take a final dump from the old production database and re-run step 4 — this catches everything written since the bulk import.
-3. Re-run `./scripts/migrate-storage.sh live` to catch new blobs.
+3. If the old site accepted uploads after the archive was taken, collect those blobs from the old server and re-run `./scripts/import-storage.sh` on them. `rclone copy` is additive, so re-running is safe.
 4. Deploy the app with the Hetzner storage service active: `kamal deploy -d live`.
 5. Verify: `curl -s https://<web-ip>/up`, log in, open an invoice PDF (exercises both the DB and Active Storage).
 
@@ -118,7 +148,7 @@ Mail records must be in place *before* the nameserver switch, or invoice deliver
 ## 8. Decommission
 
 - [ ] Old server destroyed, final dump archived
-- [ ] DigitalOcean Spaces bucket retained read-only for one backup cycle, then deleted
+- [ ] Active Storage archive verified complete (zero missing blobs) before it is deleted anywhere
 - [ ] Capistrano gems and `config/deploy.rb` / `Capfile` removed from the app repo
 - [ ] `deploy.job.yml` deleted and `kamal-deploy.yml` wired into the app's `main.yml`
 - [ ] Verify a `db-backup` run has landed in `s3://reckoning-live-storage/db/`

@@ -1,5 +1,5 @@
-# Active Storage bucket. Replaces the DigitalOcean Spaces bucket referenced by
-# config/storage.yml in the app repo — see scripts/migrate-storage.sh.
+# Active Storage bucket. Replaces the retired DigitalOcean Spaces bucket still
+# referenced by config/storage.yml in the app repo — see scripts/import-storage.sh.
 resource "aws_s3_bucket" "storage" {
   bucket = "${local.prefix}-storage"
 }

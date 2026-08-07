@@ -14,6 +14,7 @@ Read [README.md](README.md) for architecture and the cost model, [MAINTENANCE.md
 - **The live web server holds the database volume.** Anything that replaces it is data loss. Never remove `lifecycle { ignore_changes = [user_data] }` from `hcloud_server`, and never weaken the destructive-change gate in `.github/workflows/deploy.yml`.
 - **`manage_dns` defaults to `false`.** `reckoning.me` is still served by its existing nameservers. Do not flip the default.
 - **Mail DNS (`var.email_config`) is deliberately empty.** Never invent MX, DKIM, or SPF values — wrong records break invoice delivery silently. They must be transcribed from the live zone.
+- **The Active Storage archive is irreplaceable.** The DigitalOcean Spaces bucket it came from has been retired, so the zip is the only copy of every invoice attachment. `scripts/import-storage.sh` uses `rclone copy`, never `sync`, and verifies coverage rather than assuming it. Don't relax either.
 
 ## Key files
 
@@ -28,7 +29,7 @@ Read [README.md](README.md) for architecture and the cost model, [MAINTENANCE.md
 | `locals.tf` | Computed values (private IPs, `colocated_datastores`) |
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
-| `scripts/` | DB import and DigitalOcean storage migration |
+| `scripts/` | DB import and Active Storage blob upload |
 | `tests/` | `terraform test` suites |
 
 ## Commands
