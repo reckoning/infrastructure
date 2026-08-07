@@ -143,15 +143,49 @@ needed.
 
 Only after step 6 verifies clean.
 
+`reckoning.me` is currently served by **DNSimple** (`ns1-4.dnsimple-edge.*`).
+Moving it to Hetzner means recreating the zone here, then repointing the
+delegation at the registrar — no record edits in DNSimple itself.
+
+The live zone as it stands (verified by query, not assumed):
+
+| Record | Current value | Ported? |
+|---|---|---|
+| `@` A | GitHub Pages (offline placeholder) | yes — becomes the new server IP |
+| `www` | CNAME to Pages | yes — gets an A record alongside the apex |
+| `*` A | removed | yes — `hostnames` includes `*`, restored on apply |
+| `@` MX | `1 smtp.google.com.` | yes — `var.email_config` |
+| `@` TXT | `google-site-verification=K1SYo…` | yes — `var.email_config` |
+| SPF / DKIM / DMARC | none exist | see below |
+
+The apex previously pointed at a Hetzner server that has since been destroyed,
+and its IP reassigned to another customer — which also let whoever holds it
+obtain a certificate for the domain. Those records were repointed at the
+placeholder, and the wildcard removed, ahead of this migration. There is no old
+address to roll back to; the zone's pre-migration state is captured in the
+DNSimple zone itself until it is retired.
+
 ```bash
-# Transcribe the existing MX / DKIM / TXT records into var.email_config first —
-# these are left empty on purpose so mail delivery can't silently break.
 terraform apply -var 'manage_dns=true'
 ```
 
-Then repoint `reckoning.me` at Hetzner's nameservers at the registrar. Lower the TTL at the current provider ~24h beforehand.
+Verify every record resolves from the Hetzner nameservers directly before
+touching the delegation:
 
-Mail records must be in place *before* the nameserver switch, or invoice delivery breaks the moment DNS propagates.
+```bash
+dig @<hetzner-ns> reckoning.me MX +short
+dig @<hetzner-ns> reckoning.me TXT +short
+```
+
+Then lower the TTL at DNSimple ~24h ahead, and repoint the nameservers at the
+registrar. Mail records must resolve *before* the switch, or invoice delivery
+breaks the moment it propagates.
+
+> **No SPF record exists**, while mail is sent through Google Workspace. That is
+> a pre-existing deliverability weakness, not something this migration
+> introduces. Worth fixing — but add SPF in its own change, after confirming
+> every sending source is listed, since a too-strict record starts rejecting
+> mail rather than failing visibly.
 
 ## 8. Decommission
 

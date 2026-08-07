@@ -111,12 +111,22 @@ variable "github_username" {
 }
 
 variable "email_config" {
-  description = "Per-workspace mail DNS. Left null until the records from the current reckoning.me zone have been transcribed — inventing MX/DKIM values would silently break mail delivery."
+  description = "Per-workspace mail and verification DNS, transcribed from the live reckoning.me zone. These must be in place before the nameservers are repointed, or invoice delivery breaks the moment DNS propagates."
   type = map(object({
     mx_records  = list(object({ value = string }))
     cnames      = map(string)
     dkim        = map(string)
     txt_records = list(string)
   }))
-  default = {}
+  default = {
+    # Verified against the live DNSimple zone. Mail is Google Workspace; there is
+    # currently no SPF, DKIM or DMARC record — see README before adding any, as
+    # introducing SPF without listing every sender can start rejecting mail.
+    live = {
+      mx_records  = [{ value = "1 smtp.google.com." }]
+      cnames      = {}
+      dkim        = {}
+      txt_records = ["\"google-site-verification=K1SYojdF6tqFUwgYB3G8maNmvY9D6NXza85qfQkqBI4\""]
+    }
+  }
 }
