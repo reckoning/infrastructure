@@ -24,6 +24,7 @@ variable "env_config" {
     dns_zone          = string
     hostnames         = list(string)
     cors_origins      = list(string)
+    object_storage    = bool
   }))
   default = {
     default = {
@@ -33,9 +34,12 @@ variable "env_config" {
       dns_zone          = null
       hostnames         = []
       cors_origins      = ["http://reckoning.test", "http://*.reckoning.test"]
+      object_storage    = true
     }
-    # Scaled to zero — spin stage up on demand by bumping web_servers_count,
-    # apply, then scale back down. Idle stage costs nothing this way.
+    # Scaled to zero — spin stage up on demand by bumping web_servers_count
+    # and object_storage, apply, then scale back down. Object Storage bills a
+    # flat monthly fee the moment a bucket exists, servers or not, so an idle
+    # stage must not hold one.
     stage = {
       server_type       = "cx23"
       web_servers_count = 0
@@ -43,6 +47,7 @@ variable "env_config" {
       dns_zone          = "reckoning.me"
       hostnames         = ["stage", "*.stage"]
       cors_origins      = ["https://stage.reckoning.me"]
+      object_storage    = false
     }
     # Single node: Postgres and Redis run as Kamal accessories on the web server
     # rather than a separate accessories box. Halves the monthly bill; see the
@@ -54,6 +59,7 @@ variable "env_config" {
       dns_zone          = "reckoning.me"
       hostnames         = ["@", "www", "*"]
       cors_origins      = ["https://reckoning.me", "https://*.reckoning.me"]
+      object_storage    = true
     }
   }
 }

@@ -13,6 +13,7 @@ Stage and live are separate **Hetzner projects** (`reckoning-stage`, `reckoning-
 ## Constraints
 
 - **Cost is a first-class constraint.** Reckoning runs on the cheapest workable setup. Don't add servers, buckets, load balancers, or CDN zones without a stated reason — every one of them has a monthly bill. The cost ladder in README.md explains what was traded away and why.
+- **Billable resources must be gated, not just scaled down.** Object Storage bills per bucket from creation, independent of servers or bytes stored, so `env_config.object_storage` gates the buckets separately from `web_servers_count`. Any future resource with a standing fee needs the same treatment — a scaled-to-zero environment must cost zero, and there is a test asserting it.
 - **The live web server holds the database volume.** Anything that replaces it is data loss. Never remove `lifecycle { ignore_changes = [user_data] }` from `hcloud_server`, and never weaken the destructive-change gate in `.github/workflows/deploy.yml`.
 - **`manage_dns` defaults to `false`.** `reckoning.me` is still served by its existing nameservers. Do not flip the default.
 - **Mail DNS (`var.email_config`) is deliberately empty.** Never invent MX, DKIM, or SPF values — wrong records break invoice delivery silently. They must be transcribed from the live zone.

@@ -11,6 +11,7 @@ variables {
       dns_zone          = null
       hostnames         = []
       cors_origins      = []
+      object_storage    = true
     }
   }
 }

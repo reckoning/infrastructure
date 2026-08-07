@@ -30,13 +30,13 @@ output "ssh_accessory_server_config" {
 }
 
 output "storage_bucket" {
-  description = "Active Storage bucket name."
-  value       = aws_s3_bucket.storage.bucket
+  description = "Active Storage bucket name. Empty when the environment has no object storage."
+  value       = one(aws_s3_bucket.storage[*].bucket)
 }
 
 output "backups_bucket" {
   description = "Bucket the Postgres backup accessory writes to."
-  value       = var.separate_backup_bucket ? one(aws_s3_bucket.backups[*].bucket) : aws_s3_bucket.storage.bucket
+  value       = var.separate_backup_bucket ? one(aws_s3_bucket.backups[*].bucket) : one(aws_s3_bucket.storage[*].bucket)
 }
 
 output "backups_prefix" {

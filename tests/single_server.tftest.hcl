@@ -49,7 +49,7 @@ run "buckets" {
   command = plan
 
   assert {
-    condition     = aws_s3_bucket.storage.bucket == "reckoning-default-storage"
+    condition     = aws_s3_bucket.storage[0].bucket == "reckoning-default-storage"
     error_message = "Storage bucket name is not correct"
   }
 
@@ -74,5 +74,38 @@ run "separate_backup_bucket" {
   assert {
     condition     = aws_s3_bucket.backups[0].bucket == "reckoning-default-backups"
     error_message = "Backups bucket name is not correct"
+  }
+}
+
+run "scaled_to_zero_provisions_no_paid_bucket" {
+  command = plan
+
+  variables {
+    env_config = {
+      default = {
+        server_type       = "cx23"
+        web_servers_count = 0
+        accessories_count = 0
+        dns_zone          = null
+        hostnames         = []
+        cors_origins      = []
+        object_storage    = false
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_s3_bucket.storage == []
+    error_message = "A billable storage bucket was created for a scaled-to-zero environment"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.backups == []
+    error_message = "A billable backups bucket was created for a scaled-to-zero environment"
+  }
+
+  assert {
+    condition     = hcloud_server.web_server == []
+    error_message = "Servers were created for a scaled-to-zero environment"
   }
 }
