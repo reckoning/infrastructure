@@ -149,14 +149,21 @@ delegation at the registrar — no record edits in DNSimple itself.
 
 The live zone as it stands (verified by query, not assumed):
 
-| Record | Value | Ported? |
+| Record | Current value | Ported? |
 |---|---|---|
-| `@` A | `78.46.148.91` | yes — becomes the new server IP |
-| `*` A | `78.46.148.91` | yes — `hostnames` includes `*` |
-| `www` | exists but resolves to nothing | **fixed** — gets a real A record |
+| `@` A | GitHub Pages (offline placeholder) | yes — becomes the new server IP |
+| `www` | CNAME to Pages | yes — gets an A record alongside the apex |
+| `*` A | removed | yes — `hostnames` includes `*`, restored on apply |
 | `@` MX | `1 smtp.google.com.` | yes — `var.email_config` |
 | `@` TXT | `google-site-verification=K1SYo…` | yes — `var.email_config` |
 | SPF / DKIM / DMARC | none exist | see below |
+
+The apex previously pointed at a Hetzner server that has since been destroyed,
+and its IP reassigned to another customer — which also let whoever holds it
+obtain a certificate for the domain. Those records were repointed at the
+placeholder, and the wildcard removed, ahead of this migration. There is no old
+address to roll back to; the zone's pre-migration state is captured in the
+DNSimple zone itself until it is retired.
 
 ```bash
 terraform apply -var 'manage_dns=true'
