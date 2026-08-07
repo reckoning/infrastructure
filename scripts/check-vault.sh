@@ -22,11 +22,32 @@ fi
 
 check() {
   local title="$1" field="$2" note="${3:-}"
-  local value status
-  if ! value=$(op item get "$title" --vault "$VAULT" --account "$ACCOUNT" --fields "$field" --reveal 2>/dev/null); then
-    printf '  %-32s %-30s MISSING ITEM\n' "$title" "$field"
-    return 1
-  fi
+  local value status err attempt errfile
+  errfile=$(mktemp)
+
+  # A failed lookup is not the same as an absent item: the CLI also fails on
+  # transient API errors, and reporting those as MISSING sends someone hunting
+  # for a secret that is actually there. Retry, and only claim absence when the
+  # CLI actually says the item is absent.
+  for attempt in 1 2 3; do
+    if value=$(op item get "$title" --vault "$VAULT" --account "$ACCOUNT" --fields "$field" --reveal 2>"$errfile"); then
+      break
+    fi
+    err=$(tr '\n' ' ' <"$errfile")
+    case "$err" in
+      *"isn't an item"*|*"not found"*|*"no item matched"*)
+        printf '  %-32s %-30s MISSING ITEM\n' "$title" "$field"
+        rm -f "$errfile"
+        return 1
+        ;;
+    esac
+    if [ "$attempt" -eq 3 ]; then
+      printf '  %-32s %-30s LOOKUP FAILED  %s\n' "$title" "$field" "$err"
+      rm -f "$errfile"
+      return 1
+    fi
+  done
+  rm -f "$errfile"
   if [ -z "$value" ]; then
     status="EMPTY"
   else
