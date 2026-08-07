@@ -36,6 +36,40 @@ resource "hcloud_zone_rrset" "web" {
   depends_on = [hcloud_zone.zone]
 }
 
+# --- Offline placeholder (scaled-to-zero environments) ---
+#
+# With no web servers there is nothing to point at, so the hostnames resolve to
+# GitHub Pages, which serves placeholder/ from this repo. Pages routes by Host
+# header using placeholder/CNAME, and only for the single domain named there —
+# wildcard hostnames are excluded because Pages cannot serve them.
+#
+# IPs are GitHub's documented Pages anycast addresses:
+# https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site
+locals {
+  github_pages_ips = [
+    "185.199.108.153",
+    "185.199.109.153",
+    "185.199.110.153",
+    "185.199.111.153",
+  ]
+
+  placeholder_hostnames = [
+    for name in local.env.hostnames : name if !strcontains(name, "*")
+  ]
+}
+
+resource "hcloud_zone_rrset" "placeholder" {
+  for_each = local.dns_enabled && local.env.web_servers_count == 0 ? toset(local.placeholder_hostnames) : toset([])
+
+  zone    = local.env.dns_zone
+  type    = "A"
+  name    = each.value
+  ttl     = 600
+  records = [for ip in local.github_pages_ips : { value = ip }]
+
+  depends_on = [hcloud_zone.zone]
+}
+
 # --- Mail ---
 # Only rendered once var.email_config carries the records transcribed from the
 # existing reckoning.me zone. See docs/dns-migration.md.

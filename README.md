@@ -82,6 +82,7 @@ Three things are per-project in Hetzner and trip people up:
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
 | `scripts/` | Vault readiness check, DB import, Active Storage blob upload |
+| `placeholder/` | Offline page served by GitHub Pages when an environment is scaled to zero |
 | `tests/` | `terraform test` suites |
 
 ## Secrets
@@ -137,6 +138,7 @@ Run `terraform fmt -recursive`, `terraform validate`, and `terraform test` befor
 ## CI/CD
 
 - **Main** (`.github/workflows/main.yml`) — `fmt -check`, `validate`, `test`, and ShellCheck on every push and PR.
+- **Pages** (`.github/workflows/pages.yml`) — publishes `placeholder/` to GitHub Pages. When a workspace has `web_servers_count = 0`, its hostnames resolve to GitHub's Pages addresses instead of a server, so a scaled-down stage serves an offline page rather than failing to resolve. Pages routes by Host header via `placeholder/CNAME`, so it covers one domain and no wildcards.
 - **Deploy** (`.github/workflows/deploy.yml`) — applies `stage` automatically after a green Main on `main`. `live` is `workflow_dispatch` only and runs plan → destructive-change gate → a separate `Live` environment approval → apply. Because the live web server holds the Postgres volume, any plan containing a destroy or replace fails the gate and must be applied by hand.
 
 ## Migrating off the legacy setup

@@ -34,6 +34,7 @@ Stage and live are separate **Hetzner projects** (`reckoning-stage`, `reckoning-
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
 | `scripts/` | Vault readiness check, DB import, Active Storage blob upload |
+| `placeholder/` | Offline page for scaled-to-zero environments, published to GitHub Pages |
 | `tests/` | `terraform test` suites |
 
 ## Commands

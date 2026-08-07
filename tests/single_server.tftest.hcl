@@ -109,3 +109,68 @@ run "scaled_to_zero_provisions_nothing" {
     error_message = "Servers were created for a scaled-to-zero environment"
   }
 }
+
+run "scaled_to_zero_serves_the_placeholder" {
+  command = plan
+
+  variables {
+    manage_dns = true
+    env_config = {
+      default = {
+        server_type       = "cx23"
+        web_servers_count = 0
+        accessories_count = 0
+        dns_zone          = "reckoning.me"
+        hostnames         = ["stage", "*.stage"]
+        cors_origins      = []
+        object_storage    = false
+      }
+    }
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.web) == 0
+    error_message = "Web A records were created for an environment with no servers"
+  }
+
+  # The wildcard is excluded: GitHub Pages routes by Host header and cannot
+  # serve a wildcard subdomain.
+  assert {
+    condition     = keys(hcloud_zone_rrset.placeholder) == ["stage"]
+    error_message = "Placeholder records should cover the non-wildcard hostnames only"
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.placeholder["stage"].records) == 4
+    error_message = "Placeholder should point at all four GitHub Pages addresses"
+  }
+}
+
+run "running_environment_has_no_placeholder" {
+  command = plan
+
+  variables {
+    manage_dns = true
+    env_config = {
+      default = {
+        server_type       = "cx23"
+        web_servers_count = 1
+        accessories_count = 0
+        dns_zone          = "reckoning.me"
+        hostnames         = ["stage"]
+        cors_origins      = []
+        object_storage    = false
+      }
+    }
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.placeholder) == 0
+    error_message = "Placeholder records were created while servers exist"
+  }
+
+  assert {
+    condition     = length(hcloud_zone_rrset.web) == 1
+    error_message = "Web A record missing for a running environment"
+  }
+}
