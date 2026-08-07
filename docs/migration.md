@@ -22,6 +22,15 @@ Cutover from the Ansible/Capistrano setup (`reckoning/infrastructure-legacy`) to
 - The current production dump available in your dev environment
 - The Active Storage archive (zip) downloaded from the retired Spaces bucket
 
+Both currently live in Google Drive under `dropbox/projects/reckoning/backups/`:
+
+| File | What it is |
+|---|---|
+| `files.zip` | **The Active Storage export.** ~100 blobs under a `files/` wrapper, keys in Active Storage's 28-char base36 format. This is the one step 5 wants. |
+| `reckoning-pg17-*.sql` | Most recent production database dump. Use this for step 4. |
+| `app/archives/files.tar.gz` | **Not** the blobs — six files from the old Capistrano `shared/public/uploads/`, last written Sep 2022, predating Active Storage. Nothing in the current app reads this path. |
+| `app.tar`, `app.tar.gpg` | Ansible-era whole-app archives, superseded. |
+
 > **The Spaces bucket is gone.** The zip is the only remaining copy of every
 > invoice attachment and upload. Keep an untouched copy of it somewhere safe for
 > the duration of the migration — there is nothing to re-pull from if it is lost
