@@ -54,30 +54,30 @@ run "buckets" {
   }
 
   assert {
-    condition     = aws_s3_bucket.backups == []
-    error_message = "A separate backups bucket was created by default"
-  }
-
-  assert {
-    condition     = output.backups_bucket == "reckoning-default-storage" && output.backups_prefix == "db"
-    error_message = "Backups should default into the storage bucket under a db/ prefix"
-  }
-}
-
-run "separate_backup_bucket" {
-  command = plan
-
-  variables {
-    separate_backup_bucket = true
-  }
-
-  assert {
     condition     = aws_s3_bucket.backups[0].bucket == "reckoning-default-backups"
     error_message = "Backups bucket name is not correct"
   }
 }
 
-run "scaled_to_zero_provisions_no_paid_bucket" {
+run "backups_share_the_storage_bucket_when_disabled" {
+  command = plan
+
+  variables {
+    separate_backup_bucket = false
+  }
+
+  assert {
+    condition     = aws_s3_bucket.backups == []
+    error_message = "A separate backups bucket was created while disabled"
+  }
+
+  assert {
+    condition     = output.backups_bucket == "reckoning-default-storage" && output.backups_prefix == "db"
+    error_message = "Backups should fall back to the storage bucket under a db/ prefix"
+  }
+}
+
+run "scaled_to_zero_provisions_nothing" {
   command = plan
 
   variables {
@@ -96,12 +96,12 @@ run "scaled_to_zero_provisions_no_paid_bucket" {
 
   assert {
     condition     = aws_s3_bucket.storage == []
-    error_message = "A billable storage bucket was created for a scaled-to-zero environment"
+    error_message = "A storage bucket was created for a scaled-to-zero environment"
   }
 
   assert {
     condition     = aws_s3_bucket.backups == []
-    error_message = "A billable backups bucket was created for a scaled-to-zero environment"
+    error_message = "A backups bucket was created for a scaled-to-zero environment"
   }
 
   assert {

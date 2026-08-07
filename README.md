@@ -32,22 +32,23 @@ Reckoning is optimised for the cheapest workable live setup. Approximate monthly
 |---|---|---|
 | 1× cx23 web server | ~4.00 | Runs everything |
 | Primary IPv4 | ~0.60 | Required for public HTTPS |
-| Object storage bucket | ~6.00 | Flat per-bucket fee, 1 TB included |
-| **Live total** | **~10.60** | |
-| Stage | 0.00 | No servers and no bucket until spun up |
+| Object Storage | 0.00* | See below |
+| **Live total** | **~4.60** | |
+| Stage | 0.00 | Nothing provisioned until spun up |
 
-Splitting stage and live into two Hetzner **projects costs nothing** — billing is per account, and projects are only an organisational boundary. What matters is what exists inside them.
+\* [Hetzner's Object Storage base price is per **account**](https://docs.hetzner.com/storage/object-storage/overview/), not per bucket or per project: *"You are charged per hour with a monthly price cap, regardless of how many Buckets you have and how many different projects or locations they are in."* Roughly €4.99/month includes 1 TB of storage and 1 TB of egress, pooled across every bucket in the account.
 
-The trap that creates: object storage bills a flat fee **per bucket, from the moment the bucket exists**, regardless of servers or stored bytes. A stage environment with zero servers still looked free while quietly holding a ~6.00/month bucket — and `Deploy` auto-applies stage on every push to `main`, so it would have appeared without anyone asking for it. `env_config.object_storage` gates this, and `terraform test` asserts a scaled-to-zero environment provisions no billable bucket.
+So reckoning's storage is free **if the account already pays that base price for another project**. Reckoning's own footprint — ~100 Active Storage blobs totalling ~5 MB, plus ~1 MB/day of retained database dumps — is a rounding error against the included terabyte. If reckoning is the first thing on the account to create a bucket, add ~4.99 to the table: the charge starts at the first active bucket, even an empty one.
+
+Splitting stage and live into two Hetzner **projects costs nothing**. Billing is per account; projects are only an organisational boundary.
 
 Levers, cheapest first:
 
-1. **Stage holds nothing when idle.** `web_servers_count = 0` *and* `object_storage = false`. Set both when spinning it up, and both back when done — servers alone aren't the whole bill.
-2. **One bucket, not two.** `separate_backup_bucket = false` (the default) keeps Postgres backups in the storage bucket under a `db/` prefix instead of paying a second per-bucket fee.
-3. **One server, not two.** `accessories_count = 0` (the default for live) colocates the datastores. The trade-off is that replacing the web server destroys the Postgres volume — see [MAINTENANCE.md](MAINTENANCE.md).
-4. **ARM instead of Intel.** A `cax11` is cheaper than a `cx23` for the same 2 vCPU / 4 GB. This requires changing `builder.arch` to `arm64` in the app repo's `config/deploy.yml`; not done by default because the Docker image is currently built `amd64`.
+1. **Stage holds nothing when idle.** `web_servers_count = 0` and `object_storage = false`.
+2. **One server, not two.** `accessories_count = 0` (the default for live) colocates the datastores. The trade-off is that replacing the web server destroys the Postgres volume — see [MAINTENANCE.md](MAINTENANCE.md).
+3. **ARM instead of Intel.** A `cax11` is cheaper than a `cx23` for the same 2 vCPU / 4 GB. This requires changing `builder.arch` to `arm64` in the app repo's `config/deploy.yml`; not done by default because the Docker image is currently built `amd64`.
 
-At ~100 Active Storage blobs totalling ~5 MB, the storage bucket's flat fee is the single largest line item in the live bill — larger than the server. If that ratio matters, the cheapest alternative is serving attachments from a disk volume on the web server and keeping only off-site database backups in object storage.
+Bucket *count* is not a lever — that is why `separate_backup_bucket` defaults to `true`. Keeping database dumps out of the bucket that carries the app's CORS rules is free.
 
 ## Workspaces and Hetzner projects
 

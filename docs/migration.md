@@ -11,7 +11,7 @@ Cutover from the Ansible/Capistrano setup (`reckoning/infrastructure-legacy`) to
 | Redis | Server-installed Redis | `redis` Kamal accessory |
 | Active Storage | Local archive of the retired DigitalOcean Spaces bucket | Hetzner Object Storage (`reckoning-live-storage`) |
 | DNS | Existing `reckoning.me` nameservers | Hetzner DNS |
-| Backups | Ansible `backup` role | `postgres-backup-s3` accessory → `db/` prefix |
+| Backups | Ansible `backup` role | `postgres-backup-s3` accessory → `reckoning-live-backups` |
 
 ## 1. Prerequisites
 
@@ -160,7 +160,7 @@ Mail records must be in place *before* the nameserver switch, or invoice deliver
 - [ ] Active Storage archive verified complete (zero missing blobs) before it is deleted anywhere
 - [ ] Capistrano gems and `config/deploy.rb` / `Capfile` removed from the app repo
 - [ ] `deploy.job.yml` deleted and `kamal-deploy.yml` wired into the app's `main.yml`
-- [ ] Verify a `db-backup` run has landed in `s3://reckoning-live-storage/db/`
+- [ ] Verify a `db-backup` run has landed in `s3://reckoning-live-backups/`
 
 ## Rollback
 

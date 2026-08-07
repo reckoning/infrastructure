@@ -1,9 +1,10 @@
 # Active Storage bucket. Replaces the retired DigitalOcean Spaces bucket still
 # referenced by config/storage.yml in the app repo — see scripts/import-storage.sh.
 #
-# Gated on env_config.object_storage: Hetzner bills a flat monthly fee per
-# bucket from the moment it exists, independent of servers or stored bytes, so a
-# scaled-to-zero environment must not provision one.
+# Gated on env_config.object_storage so a scaled-to-zero environment doesn't
+# carry an unused bucket. Hetzner's Object Storage base price is per account,
+# not per bucket, so this is hygiene rather than a cost saving — but the first
+# bucket on an account does start the hourly charge.
 resource "aws_s3_bucket" "storage" {
   count  = local.env.object_storage ? 1 : 0
   bucket = "${local.prefix}-storage"
@@ -25,8 +26,10 @@ resource "aws_s3_bucket_cors_configuration" "storage" {
   }
 }
 
-# Second bucket means a second flat fee, so by default the postgres-backup-s3
-# accessory writes into the storage bucket under a `db/` prefix instead.
+# Separate bucket for the postgres-backup-s3 accessory. Additional buckets are
+# free under the per-account base price, so backups are kept out of the bucket
+# that carries the app's CORS rules. Set separate_backup_bucket = false to fall
+# back to a `db/` prefix in the storage bucket.
 resource "aws_s3_bucket" "backups" {
   count  = local.env.object_storage && var.separate_backup_bucket ? 1 : 0
   bucket = "${local.prefix}-backups"

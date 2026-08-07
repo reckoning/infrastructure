@@ -40,8 +40,7 @@ accessories:
         POSTGRES_DATABASE: reckoning_production
         SCHEDULE: "0 3 * * *"
         S3_ENDPOINT: https://fsn1.your-objectstorage.com
-        S3_BUCKET: reckoning-live-storage
-        S3_PREFIX: db
+        S3_BUCKET: reckoning-live-backups
         S3_REGION: fsn1
         BACKUP_KEEP_DAYS: 14
       secret:
@@ -55,7 +54,7 @@ accessories:
 
 Ports bind to `127.0.0.1` rather than `0.0.0.0` — on a colocated node the datastores must not be reachable from the public interface. The firewall only opens 22/80/443, but the loopback binding means a firewall mistake isn't immediately an open database.
 
-`S3_BUCKET`/`S3_PREFIX` match the defaults in `storage.tf`. If you flip `separate_backup_bucket = true`, use `terraform output backups_bucket` and `terraform output backups_prefix` instead.
+`S3_BUCKET` matches the default in `storage.tf`. Confirm with `terraform output backups_bucket`, and add `S3_PREFIX: db` if you set `separate_backup_bucket = false` (`terraform output backups_prefix` tells you which applies).
 
 The app also needs `.kamal/secrets`, which does not yet exist in the app repo:
 

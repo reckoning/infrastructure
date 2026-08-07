@@ -83,7 +83,7 @@ If you later run behind a load balancer, set `maintenance = true` so LB health c
 1. **Back up and verify** — do not skip the verify:
    ```bash
    ssh kamal@<web-ip> "docker exec reckoning-db-backup /backup.sh"
-   aws s3 ls s3://reckoning-live-storage/db/ --endpoint-url https://fsn1.your-objectstorage.com
+   aws s3 ls s3://reckoning-live-backups/ --endpoint-url https://fsn1.your-objectstorage.com
    ```
    Pull the dump down locally as well. One copy in one place is not a backup.
 
@@ -112,7 +112,7 @@ If you later run behind a load balancer, set `maintenance = true` so LB health c
 
 Before maintenance:
 
-- [ ] Recent backup exists in `s3://reckoning-live-storage/db/` **and** a copy is downloaded
+- [ ] Recent backup exists in `s3://reckoning-live-backups/` **and** a copy is downloaded
 - [ ] `terraform output` noted (IPs)
 - [ ] Scheduled outside business hours — invoicing users notice
 

@@ -37,9 +37,7 @@ variable "env_config" {
       object_storage    = true
     }
     # Scaled to zero — spin stage up on demand by bumping web_servers_count
-    # and object_storage, apply, then scale back down. Object Storage bills a
-    # flat monthly fee the moment a bucket exists, servers or not, so an idle
-    # stage must not hold one.
+    # and object_storage, apply, then scale back down.
     stage = {
       server_type       = "cx23"
       web_servers_count = 0
@@ -89,9 +87,9 @@ variable "maintenance" {
 }
 
 variable "separate_backup_bucket" {
-  description = "Provision a dedicated bucket for Postgres backups. Hetzner Object Storage charges a flat monthly fee per bucket, so the default keeps backups in the storage bucket under a db/ prefix."
+  description = "Provision a dedicated bucket for Postgres backups instead of a db/ prefix in the storage bucket. Hetzner's Object Storage base price is per account and covers any number of buckets, so this costs nothing extra and keeps database dumps out of the bucket that carries the app's CORS rules."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_appsignal" {
