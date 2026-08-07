@@ -16,7 +16,7 @@ Cutover from the Ansible/Capistrano setup (`reckoning/infrastructure-legacy`) to
 ## 1. Prerequisites
 
 - 1Password `Reckoning` vault populated (see the table in [README.md](../README.md#secrets))
-- `reckoning-terraform-state` bucket created once by hand in Hetzner Object Storage (fsn1)
+- `reckoning-terraform-state` bucket created once by hand in Hetzner Object Storage (nbg1)
 - Hetzner S3 credentials exported as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
 - `rclone` installed locally (`brew install rclone`)
 - The current production dump available in your dev environment
@@ -124,8 +124,8 @@ Then point the app at the new bucket — add a Hetzner service to `config/storag
 hetzner:
   service: S3
   bucket: reckoning-live-storage
-  endpoint: https://fsn1.your-objectstorage.com
-  region: fsn1
+  endpoint: https://nbg1.your-objectstorage.com
+  region: nbg1
   access_key_id: <%= Rails.application.credentials.dig(:hetzner_s3_key) %>
   secret_access_key: <%= Rails.application.credentials.dig(:hetzner_s3_secret) %>
 ```

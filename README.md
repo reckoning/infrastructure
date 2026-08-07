@@ -112,7 +112,7 @@ Check what is still outstanding at any point — it reports SET/EMPTY per field 
 
 ```bash
 # One-time: create the state bucket in the reckoning-live project's
-# Object Storage: reckoning-terraform-state (fsn1)
+# Object Storage: reckoning-terraform-state (nbg1)
 #
 # These are the LIVE project's S3 credentials and are used only by the state
 # backend. Per-workspace bucket credentials come from 1Password.

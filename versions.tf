@@ -3,11 +3,11 @@ terraform {
 
   backend "s3" {
     endpoints = {
-      s3 = "https://fsn1.your-objectstorage.com"
+      s3 = "https://nbg1.your-objectstorage.com"
     }
     bucket = "reckoning-terraform-state"
     key    = "terraform.tfstate"
-    region = "fsn1"
+    region = "nbg1"
 
     skip_credentials_validation = true
     skip_metadata_api_check     = true

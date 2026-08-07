@@ -3,7 +3,7 @@ provider "hcloud" {
 }
 
 provider "aws" {
-  region     = "fsn1"
+  region     = "nbg1"
   access_key = one(data.onepassword_item.object_storage[*].username)
   secret_key = one(data.onepassword_item.object_storage[*].credential)
 
@@ -13,6 +13,6 @@ provider "aws" {
   skip_requesting_account_id  = true
 
   endpoints {
-    s3 = "https://fsn1.your-objectstorage.com"
+    s3 = "https://nbg1.your-objectstorage.com"
   }
 }

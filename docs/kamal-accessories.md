@@ -39,9 +39,9 @@ accessories:
         POSTGRES_HOST: reckoning-db
         POSTGRES_DATABASE: reckoning_production
         SCHEDULE: "0 3 * * *"
-        S3_ENDPOINT: https://fsn1.your-objectstorage.com
+        S3_ENDPOINT: https://nbg1.your-objectstorage.com
         S3_BUCKET: reckoning-live-backups
-        S3_REGION: fsn1
+        S3_REGION: nbg1
         BACKUP_KEEP_DAYS: 14
       secret:
         - POSTGRES_USER

@@ -22,7 +22,7 @@ DESTINATION="${2:-live}"
 DRY_RUN=""
 [ "${3:-}" = "--dry-run" ] && DRY_RUN="--dry-run"
 
-HETZNER_ENDPOINT="${HETZNER_ENDPOINT:-fsn1.your-objectstorage.com}"
+HETZNER_ENDPOINT="${HETZNER_ENDPOINT:-nbg1.your-objectstorage.com}"
 
 if [ -z "$SOURCE" ]; then
   echo "Usage: $0 <archive.zip|directory> [live|stage] [--dry-run]" >&2

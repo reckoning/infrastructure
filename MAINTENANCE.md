@@ -83,7 +83,7 @@ If you later run behind a load balancer, set `maintenance = true` so LB health c
 1. **Back up and verify** — do not skip the verify:
    ```bash
    ssh kamal@<web-ip> "docker exec reckoning-db-backup /backup.sh"
-   aws s3 ls s3://reckoning-live-backups/ --endpoint-url https://fsn1.your-objectstorage.com
+   aws s3 ls s3://reckoning-live-backups/ --endpoint-url https://nbg1.your-objectstorage.com
    ```
    Pull the dump down locally as well. One copy in one place is not a backup.
 
