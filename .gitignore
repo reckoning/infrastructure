@@ -1,0 +1,43 @@
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+### Terraform ###
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
+crash.log
+crash.*.log
+
+# Secrets live in 1Password — never commit variable files
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.terraformrc
+terraform.rc
+
+tfplan
+plan.json
+
+### Local ###
+.env
+dumps/
+
+### Editors ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.history/
+.ruby-lsp/

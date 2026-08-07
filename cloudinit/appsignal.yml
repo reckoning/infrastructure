@@ -1,0 +1,21 @@
+packages:
+  - curl
+  - gnupg
+  - apt-transport-https
+
+write_files:
+  - path: /etc/appsignal-agent.conf
+    content: |
+      push_api_key = "${appsignal_push_api_key}"
+      app_name = "${appsignal_app_name}"
+      environment = "${appsignal_app_env}"
+      hostname = "${appsignal_hostname}"
+    permissions: '0600'
+
+runcmd:
+  - curl -fsSL https://packagecloud.io/appsignal/agent/gpgkey | gpg --dearmor -o /usr/share/keyrings/appsignal-agent-archive-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/appsignal-agent-archive-keyring.gpg] https://packagecloud.io/appsignal/agent/ubuntu/ noble main" > /etc/apt/sources.list.d/appsignal_agent.list
+  - apt-get update
+  - apt-get install -y appsignal-agent
+  - systemctl enable appsignal-agent
+  - systemctl start appsignal-agent

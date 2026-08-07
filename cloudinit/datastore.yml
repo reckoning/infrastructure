@@ -1,0 +1,7 @@
+packages:
+  - postgresql-client
+
+runcmd:
+  # Redis refuses background saves under strict overcommit accounting
+  - echo "vm.overcommit_memory=1" | sudo tee -a /etc/sysctl.conf
+  - sysctl -p

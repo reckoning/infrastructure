@@ -1,0 +1,60 @@
+hostname: ${hostname}
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+timezone: Europe/Berlin
+
+manage_etc_hosts: true
+
+# SSH security
+disable_root: true
+allow_public_ssh_keys: true
+ssh_deletekeys: false
+
+packages:
+  - curl
+  - docker.io
+  - git
+  - snapd
+  - unattended-upgrades
+
+snap:
+  commands:
+    0: [install, btop]
+
+users:
+  - name: root
+    ssh_import_id:
+      - gh:${github_username}
+  - name: ${username}
+    groups:
+      - sudo
+      - docker
+    sudo:
+      - ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_import_id:
+      - gh:${github_username}
+    ssh_authorized_keys:
+      - ${deploy_ssh_public_key}
+    uid: 1000
+
+write_files:
+  - path: /etc/netplan/01-netplan.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          eth0:
+            nameservers:
+              addresses:
+                - 1.1.1.1
+                - 1.0.0.1
+    permissions: '0600'
+
+runcmd:
+  - netplan apply
+  - systemctl restart ssh
+  - dpkg-reconfigure -plow unattended-upgrades
