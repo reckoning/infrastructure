@@ -39,9 +39,17 @@ resource "hcloud_zone_rrset" "web" {
 # --- Offline placeholder (scaled-to-zero environments) ---
 #
 # With no web servers there is nothing to point at, so the hostnames resolve to
-# GitHub Pages, which serves placeholder/ from this repo. Pages routes by Host
-# header using placeholder/CNAME, and only for the single domain named there —
-# wildcard hostnames are excluded because Pages cannot serve them.
+# GitHub Pages, which serves placeholder/ from this repo.
+#
+# Pages routes by Host header, and for an Actions-built site the custom domain is
+# a repository setting rather than a CNAME file in the artifact. Set it when
+# these records are first switched on, and clear it when the environment is
+# scaled back up:
+#
+#   gh api -X PUT repos/reckoning/infrastructure/pages -f cname=stage.reckoning.me
+#
+# Only one domain can be configured, and wildcards are excluded below because
+# Pages cannot serve them.
 #
 # IPs are GitHub's documented Pages anycast addresses:
 # https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site
