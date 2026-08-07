@@ -63,7 +63,7 @@ One Hetzner account, one project per environment. A Hetzner API token is scoped 
 Three things are per-project in Hetzner and trip people up:
 
 - **SSH keys.** The key named by the `SSH Config` 1Password item must exist in *both* projects, under the same name. `data.hcloud_ssh_key.by_name` fails the plan otherwise.
-- **Object Storage credentials.** Buckets live in a project, so stage and live need separate S3 key pairs (`HETZNER_S3_STAGE` / `HETZNER_S3_LIVE`). Terraform reads these explicitly, because `AWS_ACCESS_KEY_ID` is claimed by the state backend.
+- **Object Storage credentials.** Buckets live in a project, so a key pair only works against its own project's buckets. Only live has buckets today, so a single `HETZNER_S3` item covers it; a stage that enables `object_storage` needs its own item. Terraform reads these explicitly, because `AWS_ACCESS_KEY_ID` is claimed by the state backend.
 - **The state bucket.** `reckoning-terraform-state` lives in the **live** project and holds both workspaces' state. `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` in your environment are the *live project's* credentials, used only by the backend.
 
 `stage` and `live` share the `reckoning.me` DNS zone. Hetzner DNS zones are account-level rather than project-level, so this works across the two projects — but only the workspace named by `dns_zone_owner_workspace` (default `live`) manages the `hcloud_zone` resource; `stage` writes its records into the same zone.
@@ -81,25 +81,32 @@ Three things are per-project in Hetzner and trip people up:
 | `locals.tf` | Computed values (private IPs, colocation flag) |
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
-| `scripts/` | DB import and Active Storage blob upload |
+| `scripts/` | Vault readiness check, DB import, Active Storage blob upload |
 | `tests/` | `terraform test` suites |
 
 ## Secrets
 
 All credentials come from the **`Reckoning` 1Password vault** — nothing is stored in tfvars. Required items:
 
+Values must go in the item's **top-level** `username` / `credential` / public-key fields. The Terraform provider only exposes those as attributes; a value tucked into a custom field reads back as an empty string and fails at apply time in a confusing way.
+
 | Item | Fields used | Purpose |
 |---|---|---|
 | `HCLOUD_LIVE` | credential | Hetzner API token, `reckoning-live` project |
 | `HCLOUD_STAGE` | credential | Hetzner API token, `reckoning-stage` project |
-| `HETZNER_S3_LIVE` | username, credential | Object Storage key + secret, live project |
-| `HETZNER_S3_STAGE` | username, credential | Object Storage key + secret, stage project |
+| `HETZNER_S3` | username, credential | Object Storage access key + secret. Only read by workspaces with `object_storage = true`. |
 | `SSH Config` | username | Name of the SSH key — must exist in **both** projects |
 | `Deploy Key Live` | public key | Injected into `authorized_keys` for the `kamal` user |
 | `Deploy Key Stage` | public key | Same, for stage |
 | `APPSIGNAL` | credential | AppSignal push API key (set `enable_appsignal = false` to skip) |
 
 Locally, authenticate with the 1Password CLI (`op signin`). In CI, set `OP_SERVICE_ACCOUNT_TOKEN`.
+
+Check what is still outstanding at any point — it reports SET/EMPTY per field and never prints values:
+
+```bash
+./scripts/check-vault.sh
+```
 
 ## Usage
 

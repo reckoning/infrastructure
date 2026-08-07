@@ -33,7 +33,7 @@ Stage and live are separate **Hetzner projects** (`reckoning-stage`, `reckoning-
 | `locals.tf` | Computed values (private IPs, `colocated_datastores`) |
 | `versions.tf` | Version constraints and the S3 state backend |
 | `cloudinit/` | `base` + `web` / `datastore` / `appsignal` fragments |
-| `scripts/` | DB import and Active Storage blob upload |
+| `scripts/` | Vault readiness check, DB import, Active Storage blob upload |
 | `tests/` | `terraform test` suites |
 
 ## Commands
