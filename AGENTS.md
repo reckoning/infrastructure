@@ -8,6 +8,8 @@ Live is a **single server** running the Rails app, Sidekiq worker, Postgres, and
 
 Read [README.md](README.md) for architecture and the cost model, [MAINTENANCE.md](MAINTENANCE.md) for operational procedures, [docs/migration.md](docs/migration.md) for the legacy cutover.
 
+Stage and live are separate **Hetzner projects** (`reckoning-stage`, `reckoning-live`) under one account. The API token selects the project, so workspace switching is all that's needed — but SSH keys and Object Storage credentials are per-project, and the state bucket lives in the live project. See the workspaces section of README.md before touching provider or backend config.
+
 ## Constraints
 
 - **Cost is a first-class constraint.** Reckoning runs on the cheapest workable setup. Don't add servers, buckets, load balancers, or CDN zones without a stated reason — every one of them has a monthly bill. The cost ladder in README.md explains what was traded away and why.

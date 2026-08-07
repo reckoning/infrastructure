@@ -3,7 +3,10 @@ provider "hcloud" {
 }
 
 provider "aws" {
-  region                      = "fsn1"
+  region     = "fsn1"
+  access_key = data.onepassword_item.object_storage.username
+  secret_key = data.onepassword_item.object_storage.credential
+
   skip_credentials_validation = true
   skip_metadata_api_check     = true
   skip_region_validation      = true

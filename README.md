@@ -43,15 +43,23 @@ Levers, cheapest first:
 3. **One server, not two.** `accessories_count = 0` (the default for live) colocates the datastores. The trade-off is that replacing the web server destroys the Postgres volume — see [MAINTENANCE.md](MAINTENANCE.md).
 4. **ARM instead of Intel.** A `cax11` is cheaper than a `cx23` for the same 2 vCPU / 4 GB. This requires changing `builder.arch` to `arm64` in the app repo's `config/deploy.yml`; not done by default because the Docker image is currently built `amd64`.
 
-## Workspaces
+## Workspaces and Hetzner projects
 
-| Workspace | Domain | Servers |
-|---|---|---|
-| `default` | — | 1 web + 1 accessories (used by `terraform test` only) |
-| `stage` | `stage.reckoning.me` | 0 (scale up on demand) |
-| `live` | `reckoning.me`, `www`, `*` | 1 web (colocated datastores) |
+One Hetzner account, one project per environment. A Hetzner API token is scoped to a single project, so the token selects the project — there is nothing else to configure.
 
-`stage` and `live` share the `reckoning.me` DNS zone. Only the workspace named by `dns_zone_owner_workspace` (default `live`) manages the `hcloud_zone` resource; `stage` writes its records into the same zone.
+| Workspace | Hetzner project | Domain | Servers |
+|---|---|---|---|
+| `default` | — | — | 1 web + 1 accessories (used by `terraform test` only) |
+| `stage` | `reckoning-stage` | `stage.reckoning.me` | 0 (scale up on demand) |
+| `live` | `reckoning-live` | `reckoning.me`, `www`, `*` | 1 web (colocated datastores) |
+
+Three things are per-project in Hetzner and trip people up:
+
+- **SSH keys.** The key named by the `SSH Config` 1Password item must exist in *both* projects, under the same name. `data.hcloud_ssh_key.by_name` fails the plan otherwise.
+- **Object Storage credentials.** Buckets live in a project, so stage and live need separate S3 key pairs (`HETZNER_S3_STAGE` / `HETZNER_S3_LIVE`). Terraform reads these explicitly, because `AWS_ACCESS_KEY_ID` is claimed by the state backend.
+- **The state bucket.** `reckoning-terraform-state` lives in the **live** project and holds both workspaces' state. `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` in your environment are the *live project's* credentials, used only by the backend.
+
+`stage` and `live` share the `reckoning.me` DNS zone. Hetzner DNS zones are account-level rather than project-level, so this works across the two projects — but only the workspace named by `dns_zone_owner_workspace` (default `live`) manages the `hcloud_zone` resource; `stage` writes its records into the same zone.
 
 ## Key files
 
@@ -75,9 +83,11 @@ All credentials come from the **`Reckoning` 1Password vault** — nothing is sto
 
 | Item | Fields used | Purpose |
 |---|---|---|
-| `HCLOUD_LIVE` | credential | Hetzner API token (live) |
-| `HCLOUD_STAGE` | credential | Hetzner API token (stage) |
-| `SSH Config` | username | Name of the SSH key in the Hetzner console |
+| `HCLOUD_LIVE` | credential | Hetzner API token, `reckoning-live` project |
+| `HCLOUD_STAGE` | credential | Hetzner API token, `reckoning-stage` project |
+| `HETZNER_S3_LIVE` | username, credential | Object Storage key + secret, live project |
+| `HETZNER_S3_STAGE` | username, credential | Object Storage key + secret, stage project |
+| `SSH Config` | username | Name of the SSH key — must exist in **both** projects |
 | `Deploy Key Live` | public key | Injected into `authorized_keys` for the `kamal` user |
 | `Deploy Key Stage` | public key | Same, for stage |
 | `APPSIGNAL` | credential | AppSignal push API key (set `enable_appsignal = false` to skip) |
@@ -87,9 +97,12 @@ Locally, authenticate with the 1Password CLI (`op signin`). In CI, set `OP_SERVI
 ## Usage
 
 ```bash
-# One-time: create the state bucket in Hetzner Object Storage
-#   reckoning-terraform-state (fsn1)
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...   # Hetzner S3 credentials
+# One-time: create the state bucket in the reckoning-live project's
+# Object Storage: reckoning-terraform-state (fsn1)
+#
+# These are the LIVE project's S3 credentials and are used only by the state
+# backend. Per-workspace bucket credentials come from 1Password.
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
 
 terraform init
 terraform workspace select live      # or: terraform workspace new live
