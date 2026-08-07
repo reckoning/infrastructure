@@ -118,19 +118,19 @@ kamal app exec -d live "bin/rails runner '
 '"
 ```
 
-Then point the app at the new bucket — add a Hetzner service to `config/storage.yml` in the app repo and switch `config.active_storage.service`:
+Then point the app at the new bucket. The `:hetzner` service and the
+`hetzner_s3_key`/`hetzner_s3_secret` credentials already exist in the app repo —
+only the selection still has to change, in `config/environments/production.rb`:
 
-```yaml
-hetzner:
-  service: S3
-  bucket: reckoning-live-storage
-  endpoint: https://nbg1.your-objectstorage.com
-  region: nbg1
-  access_key_id: <%= Rails.application.credentials.dig(:hetzner_s3_key) %>
-  secret_access_key: <%= Rails.application.credentials.dig(:hetzner_s3_secret) %>
+```ruby
+config.active_storage.service = :hetzner
 ```
 
-Active Storage blob keys are preserved by the sync, so no database rewrite is needed.
+At the same time, drop the now-dead `:digitalocean` block from
+`config/storage.yml` and the `s3_key`/`s3_secret` credentials with it.
+
+Active Storage blob keys are preserved by the upload, so no database rewrite is
+needed.
 
 ## 6. Cutover window
 
