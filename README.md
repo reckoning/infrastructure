@@ -100,7 +100,7 @@ Values must go in the item's **top-level** `username` / `credential` / public-ke
 | `Deploy Key Stage` | public key | Same, for stage |
 | `APPSIGNAL` | credential | AppSignal push API key (set `enable_appsignal = false` to skip) |
 
-Locally, authenticate with the 1Password CLI (`op signin`). In CI, set `OP_SERVICE_ACCOUNT_TOKEN`.
+Locally, authenticate with the 1Password CLI (`op signin`) and export `OP_ACCOUNT` — the provider shells out to `op` and cannot pick between multiple signed-in accounts on its own. In CI, `OP_SERVICE_ACCOUNT_TOKEN` replaces it.
 
 Check what is still outstanding at any point — it reports SET/EMPTY per field and never prints values:
 
@@ -116,7 +116,11 @@ Check what is still outstanding at any point — it reports SET/EMPTY per field 
 #
 # These are the LIVE project's S3 credentials and are used only by the state
 # backend. Per-workspace bucket credentials come from 1Password.
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+#
+# Both are in 1Password already, so this works without copy-pasting secrets:
+export AWS_ACCESS_KEY_ID="$(op read 'op://Reckoning/HETZNER_S3/username')"
+export AWS_SECRET_ACCESS_KEY="$(op read 'op://Reckoning/HETZNER_S3/credential')"
+export OP_ACCOUNT=my.1password.eu
 
 terraform init
 terraform workspace select live      # or: terraform workspace new live
