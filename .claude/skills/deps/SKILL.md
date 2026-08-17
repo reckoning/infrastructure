@@ -91,10 +91,14 @@ branch=$(gh pr view <number> --repo reckoning/infrastructure --json headRefName 
 [ "$(git rev-parse --abbrev-ref HEAD)" = "$branch" ] || { echo "HALT: not on $branch"; exit 1; }
 [ "$(terraform workspace show)" = "stage" ] || { echo "HALT: workspace is $(terraform workspace show)"; exit 1; }
 
+planned_sha=$(git rev-parse HEAD)
 terraform plan
+echo "planned $planned_sha"
 ```
 
 `set -euo pipefail` is what stops a failed `terraform init` or `workspace select` from falling through to the plan, and the two assertions catch the case where a command "succeeded" but left the tree somewhere unexpected. `gh pr checkout` fails on a dirty working tree — commit or stash first rather than working around it. If either `HALT` fires, the PR is unverified, not clean.
+
+**Record `planned_sha` and carry it to the merge.** A clean plan is evidence about one commit, not about the PR. Dependabot force-pushes the branch whenever a newer release lands — the same behavior that makes the title unreliable in step 2 — so the head can move between Gate C and step 4, and the merge would then apply a provider revision that was never planned.
 
 - `No changes.` → gate passes, safe to merge.
 - **Anything else — any `+`, `~`, `-`, or `-/+`** → gate fails. Do not merge. Report the plan output with the resource addresses and let the user decide. Note that `~` in-place changes are not automatically benign: a re-read attribute and a destructive rewrite look the same at this level of summary, and `must be replaced` is only the most obvious case. This is the failure mode a green `terraform_test` will not catch.
@@ -115,9 +119,14 @@ gh pr diff <number> --repo reckoning/infrastructure --name-only
 
 ### 4. Merge the safe ones
 
+Merge the exact commit Gate C planned, never just "the PR":
+
 ```bash
-gh pr merge <number> --repo reckoning/infrastructure --squash
+gh pr merge <number> --repo reckoning/infrastructure --squash \
+  --match-head-commit "$planned_sha"
 ```
+
+`--match-head-commit` makes the merge fail rather than silently enqueue a newer head. If it rejects, Dependabot rewrote the branch after your plan: **re-run Gate C against the new head** and only merge once that plan is clean too. Never drop the flag to get past a rejection — that converts a caught race into an unplanned Stage apply.
 
 `main` has a merge queue, so this enqueues rather than merging on the spot.
 
