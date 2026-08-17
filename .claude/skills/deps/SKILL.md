@@ -79,12 +79,22 @@ Empty output means green. Remember what `terraform_test` does and does not cover
 
 The gate that matters most in this repo. Run a plan locally against **every** PR branch — patch bumps included — and confirm it is a no-op. There is no bump small enough to skip this; a patch release is exactly where a silently changed default shows up.
 
+Setup has to be verified before the plan runs, not assumed. A `plan` whose checkout or workspace selection silently failed reports on the *previous* branch and workspace — and a `No changes.` from the wrong workspace (or, worse, from `live`) looks exactly like a passing gate. Abort on any setup failure and assert the state you expect:
+
 ```bash
-gh pr checkout <number>
+set -euo pipefail
+gh pr checkout <number> --repo reckoning/infrastructure
 terraform init
 terraform workspace select stage
+
+branch=$(gh pr view <number> --repo reckoning/infrastructure --json headRefName --jq .headRefName)
+[ "$(git rev-parse --abbrev-ref HEAD)" = "$branch" ] || { echo "HALT: not on $branch"; exit 1; }
+[ "$(terraform workspace show)" = "stage" ] || { echo "HALT: workspace is $(terraform workspace show)"; exit 1; }
+
 terraform plan
 ```
+
+`set -euo pipefail` is what stops a failed `terraform init` or `workspace select` from falling through to the plan, and the two assertions catch the case where a command "succeeded" but left the tree somewhere unexpected. `gh pr checkout` fails on a dirty working tree — commit or stash first rather than working around it. If either `HALT` fires, the PR is unverified, not clean.
 
 - `No changes.` → gate passes, safe to merge.
 - **Anything else — any `+`, `~`, `-`, or `-/+`** → gate fails. Do not merge. Report the plan output with the resource addresses and let the user decide. Note that `~` in-place changes are not automatically benign: a re-read attribute and a destructive rewrite look the same at this level of summary, and `must be replaced` is only the most obvious case. This is the failure mode a green `terraform_test` will not catch.
