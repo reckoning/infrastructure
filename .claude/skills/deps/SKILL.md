@@ -77,7 +77,7 @@ Empty output means green. Remember what `terraform_test` does and does not cover
 
 #### Gate C — the plan is clean
 
-The gate that matters most in this repo. Before merging anything beyond a trivial patch, run a plan locally against the PR branch and confirm it is a no-op:
+The gate that matters most in this repo. Run a plan locally against **every** PR branch — patch bumps included — and confirm it is a no-op. There is no bump small enough to skip this; a patch release is exactly where a silently changed default shows up.
 
 ```bash
 gh pr checkout <number>
@@ -86,9 +86,10 @@ terraform workspace select stage
 terraform plan
 ```
 
-- `No changes.` → safe to merge.
-- Changes limited to new optional attributes defaulting in → usually safe; say what they are in the report.
-- **Any `must be replaced` / `-/+` destroy-and-recreate** → stop. Report it with the resource addresses. This is the failure mode a green `terraform_test` will not catch.
+- `No changes.` → gate passes, safe to merge.
+- **Anything else — any `+`, `~`, `-`, or `-/+`** → gate fails. Do not merge. Report the plan output with the resource addresses and let the user decide. Note that `~` in-place changes are not automatically benign: a re-read attribute and a destructive rewrite look the same at this level of summary, and `must be replaced` is only the most obvious case. This is the failure mode a green `terraform_test` will not catch.
+
+A failed Gate C can only be cleared by the user explicitly saying to merge that PR. "Plan showed only additions, so I merged it" is never correct.
 
 If you cannot run a plan (missing credentials — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `OP_SERVICE_ACCOUNT_TOKEN` are needed for the S3 backend and the 1Password provider), **say so explicitly in the report** and mark the PR as unverified rather than merging it on CI alone.
 
@@ -110,11 +111,30 @@ gh pr merge <number> --repo reckoning/infrastructure --squash
 
 `main` has a merge queue, so this enqueues rather than merging on the spot.
 
-**Merge one at a time and watch the Stage apply before merging the next**:
+**Merge one at a time, and block until that bump's Stage apply has actually succeeded before merging the next.** This means waiting through three hops — merge queue → `Main` → `Deploy` — not glancing at a run list.
+
+First wait for the queue to land the merge and capture the resulting commit:
 
 ```bash
-gh run list --repo reckoning/infrastructure --workflow Deploy --limit 3
+until [ "$(gh pr view <number> --repo reckoning/infrastructure --json state --jq .state)" != "OPEN" ]; do sleep 30; done
+gh pr view <number> --repo reckoning/infrastructure --json state,mergeCommit \
+  --jq '"\(.state) \(.mergeCommit.oid // "none")"'
 ```
+
+If the state came back `CLOSED` rather than `MERGED`, the queue ejected the PR — usually a lockfile conflict. Report it and move on; there is no deploy to wait for.
+
+With the merge commit SHA, wait on `Main` and then on `Deploy`, both filtered to that SHA so you are never watching a run from someone else's push. `Deploy` is triggered by `workflow_run`, so it does not exist until `Main` finishes — poll for it:
+
+```bash
+SHA=<mergeCommit.oid>
+for wf in Main Deploy; do
+  until id=$(gh run list --repo reckoning/infrastructure --workflow "$wf" -c "$SHA" \
+               --limit 1 --json databaseId --jq '.[0].databaseId // empty'); [ -n "$id" ]; do sleep 20; done
+  gh run watch "$id" --repo reckoning/infrastructure --exit-status || break
+done
+```
+
+`gh run watch --exit-status` returns non-zero on failure, which is the signal to stop the whole triage: **do not merge the next PR after a failed `Main` or `Deploy`.** Surface the log (`gh run view "$id" --repo reckoning/infrastructure --log-failed`) and hand it to the user. A `Deploy` success is what confirms the Stage apply went through; anything short of that leaves the bump unverified against real state.
 
 Every open PR edits `.terraform.lock.hcl`, so each merge conflicts the rest — post `@dependabot recreate` on the remainder afterwards.
 
@@ -127,18 +147,20 @@ gh api -X DELETE repos/reckoning/infrastructure/git/refs/heads/<headRefName>
 ### 5. Report
 
 ```
-Merged / enqueued (N)
-  #12  minor  terraform  hetznercloud/hcloud 1.63.0 → 1.68.0 — plan clean
+Merged — Stage apply succeeded (N)
+  #12  minor  terraform  hetznercloud/hcloud 1.63.0 → 1.68.0 — plan clean, Deploy green
 
 Held — needs a decision (N)
   #13  major  terraform  hashicorp/aws 5.x → 6.0.0
        Provider major — read the upgrade guide before planning.
+  #14  patch  terraform  1Password/onepassword 2.1.0 → 2.1.2
+       Plan not clean: ~ hcloud_server.stage (user_data). Needs your call.
 
 Unverified — could not plan (N)
 Rebasing (N)
 ```
 
-Always state whether a plan was actually run. "CI green" alone is not a recommendation to merge in this repo.
+Always state whether a plan was actually run and whether the Stage apply finished. "CI green" alone is not a recommendation to merge in this repo, and an enqueued PR is not a completed deploy.
 
 Do not merge anything held or unverified without the user saying so.
 
