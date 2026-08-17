@@ -130,11 +130,18 @@ SHA=<mergeCommit.oid>
 for wf in Main Deploy; do
   until id=$(gh run list --repo reckoning/infrastructure --workflow "$wf" -c "$SHA" \
                --limit 1 --json databaseId --jq '.[0].databaseId // empty'); [ -n "$id" ]; do sleep 20; done
-  gh run watch "$id" --repo reckoning/infrastructure --exit-status || break
+  if ! gh run watch "$id" --repo reckoning/infrastructure --exit-status; then
+    echo "HALT: $wf failed for $SHA"
+    gh run view "$id" --repo reckoning/infrastructure --log-failed
+    exit 1
+  fi
 done
+echo "OK: Stage apply succeeded for $SHA"
 ```
 
-`gh run watch --exit-status` returns non-zero on failure, which is the signal to stop the whole triage: **do not merge the next PR after a failed `Main` or `Deploy`.** Surface the log (`gh run view "$id" --repo reckoning/infrastructure --log-failed`) and hand it to the user. A `Deploy` success is what confirms the Stage apply went through; anything short of that leaves the bump unverified against real state.
+The `exit 1` matters — it is what makes the failure visible instead of falling out of a loop quietly. **A non-zero exit here ends the entire triage, not just the wait:** stop, report the failed run, and merge nothing else until the user has resolved it. Do not proceed to the next PR, and do not treat a failed `Main` as "Deploy never ran, so nothing was applied" — read the log before concluding anything.
+
+Only the final `OK:` line confirms the Stage apply went through. If you did not see it, the bump is unverified against real state and the next merge stays blocked.
 
 Every open PR edits `.terraform.lock.hcl`, so each merge conflicts the rest — post `@dependabot recreate` on the remainder afterwards.
 
